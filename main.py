@@ -1,5 +1,5 @@
 from langchain import PromptTemplate, LLMChain, HuggingFaceHub
-from langchain.llms import GPT4All
+from langchain.llms import GPT4All,openai
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 import os
 import PyPDF2
@@ -9,9 +9,10 @@ from pathlib import Path
 from tqdm import tqdm
 import re
 import json
+import dotenv
+dotenv.load_dotenv()
 
-
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = ''
+#os.environ["HUGGINGFACEHUB_API_TOKEN"] = ''
 
 tokenizer = AutoTokenizer.from_pretrained("nomic-ai/gpt4all-falcon")
 history = {'internal': [], 'visible': []}
@@ -21,10 +22,11 @@ template = """{question} \
           "contains a single question with a single answer. Only respond with the JSON and no additional text.
           \n."""
 prompt = PromptTemplate(template=template, input_variables=["question"])
-model_path = '/home/jehu/.local/share/nomic.ai/GPT4All/ggml-model-gpt4all-falcon-q4_0.bin'
-folder_path = '/home/jehu/Documents/law data/data'
+model_path = '.\\models\\gpt4all-falcon-newbpe-q4_0.gguf'
+folder_path = '.\\docs'
 callbacks = [StreamingStdOutCallbackHandler()]
-llm = GPT4All(model=model_path, callbacks=callbacks,verbose=True)
+llm = openai.OpenAI(openai_api_key=os.environ['OPENAPI_API_KEY'])
+#llm = GPT4All(model='gpt4all-falcon-newbpe-q4_0',allow_download=True,verbose=True)
 llm_chain = LLMChain(prompt=prompt, llm=llm)
 
 
@@ -72,6 +74,10 @@ def submit_to_llm(chunk, retries=3):
             # Extract JSON string from between back-ticks
             if is_json(response):
                 print(response)
+                with open('responses.json', 'a') as f:
+                    if q > 1:  # Add a comma before writing new JSON, except for the first one
+                        f.write(",\n")
+                    json.dump(response, f)
                 return json.loads(response)
             else:
                 match = re.search(r'`(.*?)`', response, re.S)
